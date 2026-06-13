@@ -143,9 +143,9 @@ for arg in "$@"; do
             echo "       [--ohiot1dm_generate_defense_datasets=true|false]"
             echo "       [--mimic_generate_defense_datasets=true|false]"
             echo "       [--physionetcinc_generate_defense_datasets=true|false]"
-            echo "       [--ohiot1dm_evaluate_defense=true|false] [--ohiot1dm_defense_type=knn|oneclasssvm|madgan|all]"
-            echo "       [--mimic_evaluate_defense=true|false] [--mimic_defense_type=knn|oneclasssvm|madgan|all]"
-            echo "       [--physionetcinc_evaluate_defense=true|false] [--physionetcinc_defense_type=knn|oneclasssvm|madgan|all]"
+            echo "       [--ohiot1dm_evaluate_defense=true|false] [--ohiot1dm_defense_type=knn|oneclasssvm|deepsvdd|lstmae|madgan|all]"
+            echo "       [--mimic_evaluate_defense=true|false] [--mimic_defense_type=knn|oneclasssvm|deepsvdd|lstmae|madgan|all]"
+            echo "       [--physionetcinc_evaluate_defense=true|false] [--physionetcinc_defense_type=knn|oneclasssvm|deepsvdd|lstmae|madgan|all]"
             echo "       [--ohiot1dm_plot_defense_results=true|false]"
             echo "       [--mimic_plot_defense_results=true|false]"
             echo "       [--physionetcinc_plot_defense_results=true|false]"
@@ -276,12 +276,12 @@ run_defense_eval_scripts() {
 
     local defense_types=()
     if [ "$defense_type" = "all" ]; then
-        defense_types=("knn" "oneclasssvm" "madgan")
-    elif [ "$defense_type" = "knn" ] || [ "$defense_type" = "oneclasssvm" ] || [ "$defense_type" = "madgan" ]; then
+        defense_types=("knn" "oneclasssvm" "deepsvdd" "lstmae" "madgan")
+    elif [ "$defense_type" = "knn" ] || [ "$defense_type" = "oneclasssvm" ] || [ "$defense_type" = "deepsvdd" ] || [ "$defense_type" = "lstmae" ] || [ "$defense_type" = "madgan" ]; then
         defense_types=("$defense_type")
     else
         echo "Error: Invalid defense type '$defense_type' for $dataset_key."
-        echo "Valid values are: knn, oneclasssvm, madgan, all"
+        echo "Valid values are: knn, oneclasssvm, deepsvdd, lstmae, madgan, all"
         exit 1
     fi
 
@@ -314,6 +314,20 @@ run_defense_eval_scripts() {
                 exit 1
             fi
             run_in_env "$env_dir" "$target_dir" "python $ocsvm_script ${defense_out_base}/OneClassSVM --data_dir=${data_dir_arg}"
+        elif [ "$dtype" = "deepsvdd" ]; then
+            local deepsvdd_script="defenses/evaluate_deepsvdd.py"
+            if [ ! -f "$SCRIPT_DIR/$target_dir/$deepsvdd_script" ]; then
+                echo "Error: Defense evaluation script not found: $target_dir/$deepsvdd_script"
+                exit 1
+            fi
+            run_in_env "$env_dir" "$target_dir" "python $deepsvdd_script ${defense_out_base}/DeepSVDD --data_dir=${data_dir_arg}"
+        elif [ "$dtype" = "lstmae" ]; then
+            local lstmae_script="defenses/evaluate_lstmae.py"
+            if [ ! -f "$SCRIPT_DIR/$target_dir/$lstmae_script" ]; then
+                echo "Error: Defense evaluation script not found: $target_dir/$lstmae_script"
+                exit 1
+            fi
+            run_in_env "$env_dir" "$target_dir" "python $lstmae_script ${defense_out_base}/LSTMAE --data_dir=${data_dir_arg}"
         fi
     done
 }

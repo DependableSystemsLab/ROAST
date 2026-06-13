@@ -12,6 +12,8 @@ from scipy.stats import ttest_rel
 DEFENSE_CONFIGS = [
     {"key": "KNN", "display": "$\\mathit{k}$NN", "aliases": ["KNN", "kNN"]},
     {"key": "OneClassSVM", "display": "One-Class SVM", "aliases": ["OneClassSVM"]},
+    {"key": "DeepSVDD", "display": "Deep SVDD", "aliases": ["DeepSVDD", "DeepSVDD"]},
+    {"key": "LSTMAE", "display": "LSTM-AE", "aliases": ["LSTMAE", "LSTM-AE"]},
     {"key": "MADGAN", "display": "MAD-GAN", "aliases": ["MADGAN", "MAD-GAN"]},
 ]
 

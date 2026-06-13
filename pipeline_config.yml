@@ -9,7 +9,7 @@ ohiot1dm_cluster: false
 ohiot1dm_cluster_method: "hierarchical"  # Options: hierarchical, kmeans
 ohiot1dm_generate_defense_datasets: false
 ohiot1dm_evaluate_defense: false
-ohiot1dm_defense_type: "all"  # Options: knn, oneclasssvm, madgan, all
+ohiot1dm_defense_type: "all"  # Options: knn, oneclasssvm, deepsvdd, lstmae, madgan, all
 ohiot1dm_plot_defense_results: false
 
 # MIMIC Pipeline
@@ -23,7 +23,7 @@ mimic_cluster: false
 mimic_cluster_method: "hierarchical"  # Options: hierarchical, kmeans
 mimic_generate_defense_datasets: false
 mimic_evaluate_defense: false
-mimic_defense_type: "all"  # Options: knn, oneclasssvm, madgan, all
+mimic_defense_type: "all"  # Options: knn, oneclasssvm, deepsvdd, lstmae, madgan, all
 mimic_plot_defense_results: false
 
 # PhysioNetCinC Pipeline
@@ -36,7 +36,7 @@ physionetcinc_cluster: false
 physionetcinc_cluster_method: "hierarchical"  # Options: hierarchical, kmeans
 physionetcinc_generate_defense_datasets: false
 physionetcinc_evaluate_defense: false
-physionetcinc_defense_type: "all"  # Options: knn, oneclasssvm, madgan, all
+physionetcinc_defense_type: "all"  # Options: knn, oneclasssvm, deepsvdd, lstmae, madgan, all
 physionetcinc_plot_defense_results: false
 
 # Cross-attack comparison figures (cross-dataset: attack-type comparison, cross-attack heatmaps, box plots)

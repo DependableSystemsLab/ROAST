@@ -8,5 +8,5 @@ argparse
 dtaidistance==2.3.10
 joblib
 matplotlib
-pyod
+pyod>=2.0  # >=2.0 ships the PyTorch DeepSVDD backend (older pyod needs TensorFlow)
 scikit-learn

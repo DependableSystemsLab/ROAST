@@ -17,4 +17,4 @@ argparse
 markupsafe==2.0.1
 dtaidistance
 joblib
-pyod
+pyod>=2.0  # >=2.0 ships the PyTorch DeepSVDD backend (older pyod needs TensorFlow)
