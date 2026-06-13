@@ -92,10 +92,11 @@ def combine_results(output_directory):
 
 
 
-def evaluate_oneclasssvm(output_directory):
+def evaluate_oneclasssvm(output_directory, data_dir=None):
     os.makedirs(output_directory, exist_ok=True)
 
-    data_dir = Path(__file__).resolve().parents[1] / "output" / "defense_dataset"
+    if data_dir is None:
+        data_dir = Path(__file__).resolve().parents[1] / "output" / "defense_dataset"
 
     clf = OneClassSVM(kernel='rbf',  gamma='scale', coef0=0, tol=0.001, nu=0.5)
     # scaler = StandardScaler()
@@ -254,11 +255,13 @@ if __name__ == '__main__':
         epilog="Example: python evaluate_oneclasssvm.py output"
     )
     parser.add_argument("out_dir", nargs="?", default="output/defense_output/OneClassSVM", help="Output directory")
+    parser.add_argument("--data_dir", default="output/defense_dataset", help="Directory containing generated defense dataset .npy files")
 
     args = parser.parse_args()
 
     dataset_root = Path(__file__).resolve().parents[1]
 
     output_directory = dataset_root / args.out_dir
+    data_directory = dataset_root / args.data_dir
 
-    evaluate_oneclasssvm(output_directory)
+    evaluate_oneclasssvm(output_directory, data_directory)

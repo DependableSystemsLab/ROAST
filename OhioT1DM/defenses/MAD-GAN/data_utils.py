@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import os
 import pdb
 import re
 from time import time
@@ -467,7 +468,7 @@ def kdd99_test(seq_length, seq_step, num_signals):
 def ohiot1dm(year, seq_length, seq_step, num_signals):
     # N's start
     SCRIPT_DIR = Path(__file__).resolve().parent
-    data_dir = SCRIPT_DIR.parent.parent / "output" / "defense_dataset"
+    data_dir = Path(os.environ.get("ROAST_DEFENSE_DATASET_DIR", str(SCRIPT_DIR.parent.parent / "output" / "defense_dataset")))
     train = np.load(str(data_dir)+'/ohiot1dm_train_'+year+'.npy')
     # N's end
     print('load ohiot1dm_train from .npy')
@@ -523,7 +524,7 @@ def ohiot1dm(year, seq_length, seq_step, num_signals):
 def ohiot1dm_test(year, seq_length, seq_step, num_signals):
     # N's start
     SCRIPT_DIR = Path(__file__).resolve().parent
-    data_dir = SCRIPT_DIR.parent.parent / "output" / "defense_dataset"
+    data_dir = Path(os.environ.get("ROAST_DEFENSE_DATASET_DIR", str(SCRIPT_DIR.parent.parent / "output" / "defense_dataset")))
     test = np.load(str(data_dir)+'/ohiot1dm_test_'+year+'.npy')
     # N's end
     print('load ohiot1dm_test from .npy')
@@ -582,7 +583,7 @@ def ohiot1dm_test(year, seq_length, seq_step, num_signals):
 def ohiot1dm_patient_wise(year, patient, seq_length, seq_step, num_signals):
     # N's start
     SCRIPT_DIR = Path(__file__).resolve().parent
-    data_dir = SCRIPT_DIR.parent.parent / "output" / "defense_dataset"
+    data_dir = Path(os.environ.get("ROAST_DEFENSE_DATASET_DIR", str(SCRIPT_DIR.parent.parent / "output" / "defense_dataset")))
     train = np.load(str(data_dir)+'/ohiot1dm_train_'+year+'_'+patient+'.npy')
     # N's end
     print('load ohiot1dm_train from .npy')
@@ -638,7 +639,7 @@ def ohiot1dm_patient_wise(year, patient, seq_length, seq_step, num_signals):
 def ohiot1dm_test_patient_wise(year, patient, seq_length, seq_step, num_signals):
     # N's start
     SCRIPT_DIR = Path(__file__).resolve().parent
-    data_dir = SCRIPT_DIR.parent.parent / "output" / "defense_dataset"
+    data_dir = Path(os.environ.get("ROAST_DEFENSE_DATASET_DIR", str(SCRIPT_DIR.parent.parent / "output" / "defense_dataset")))
     test = np.load(str(data_dir)+'/ohiot1dm_test_'+year+'_'+patient+'.npy')
     # N's end
     print('load ohiot1dm_test from .npy')

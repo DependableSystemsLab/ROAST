@@ -70,6 +70,17 @@ RUN_PHYS_EVAL_DEF=$(yq e '.physionetcinc_evaluate_defense' "$CONFIG_FILE")
 RUN_PHYS_DEF_TYPE=$(yq e '.physionetcinc_defense_type' "$CONFIG_FILE")
 RUN_PHYS_PLOT_DEF=$(yq e '.physionetcinc_plot_defense_results' "$CONFIG_FILE")
 
+# Cross-attack comparison figures flag (cross-dataset)
+RUN_CROSS_ATTACK_PLOTS=$(yq e '.cross_attack_plots' "$CONFIG_FILE")
+
+# Adversarial Attack Type flags
+RUN_OHIOT1DM_ATTACK_TYPE=$(yq e '.ohiot1dm_attack_type' "$CONFIG_FILE")
+RUN_OHIOT1DM_EVAL_ATTACK_TYPE=$(yq e '.ohiot1dm_eval_attack_type' "$CONFIG_FILE")
+RUN_MIMIC_ATTACK_TYPE=$(yq e '.mimic_attack_type' "$CONFIG_FILE")
+RUN_MIMIC_EVAL_ATTACK_TYPE=$(yq e '.mimic_eval_attack_type' "$CONFIG_FILE")
+RUN_PHYS_ATTACK_TYPE=$(yq e '.physionetcinc_attack_type' "$CONFIG_FILE")
+RUN_PHYS_EVAL_ATTACK_TYPE=$(yq e '.physionetcinc_eval_attack_type' "$CONFIG_FILE")
+
 RUN_GLOBAL_RISK="false"
 RUN_GLOBAL_CLUS="false"
 
@@ -107,6 +118,13 @@ for arg in "$@"; do
         --physionetcinc_evaluate_defense=*) RUN_PHYS_EVAL_DEF="${arg#*=}" ;;
         --physionetcinc_defense_type=*) RUN_PHYS_DEF_TYPE="${arg#*=}" ;;
         --physionetcinc_plot_defense_results=*) RUN_PHYS_PLOT_DEF="${arg#*=}" ;;
+        --ohiot1dm_attack_type=*) RUN_OHIOT1DM_ATTACK_TYPE="${arg#*=}" ;;
+        --ohiot1dm_eval_attack_type=*) RUN_OHIOT1DM_EVAL_ATTACK_TYPE="${arg#*=}" ;;
+        --mimic_attack_type=*) RUN_MIMIC_ATTACK_TYPE="${arg#*=}" ;;
+        --mimic_eval_attack_type=*) RUN_MIMIC_EVAL_ATTACK_TYPE="${arg#*=}" ;;
+        --physionetcinc_attack_type=*) RUN_PHYS_ATTACK_TYPE="${arg#*=}" ;;
+        --physionetcinc_eval_attack_type=*) RUN_PHYS_EVAL_ATTACK_TYPE="${arg#*=}" ;;
+        --cross_attack_plots=*) RUN_CROSS_ATTACK_PLOTS="${arg#*=}" ;;
         --risk_profile=*)             RUN_GLOBAL_RISK="${arg#*=}" ;;
         --cluster=*)                  RUN_GLOBAL_CLUS="${arg#*=}" ;;
         -h|--help)
@@ -119,6 +137,9 @@ for arg in "$@"; do
             echo "       [--ohiot1dm_risk_profile=true|false] [--ohiot1dm_cluster=true|false] [--ohiot1dm_cluster_method=hierarchical|kmeans]"
             echo "       [--mimic_risk_profile=true|false] [--mimic_cluster=true|false] [--mimic_cluster_method=hierarchical|kmeans]"
             echo "       [--physionetcinc_risk_profile=true|false] [--physionetcinc_cluster=true|false] [--physionetcinc_cluster_method=hierarchical|kmeans]"
+            echo "       [--ohiot1dm_attack_type=URET|FGSM|PGD|CW] [--ohiot1dm_eval_attack_type=same|URET|FGSM|PGD|CW]"
+            echo "       [--mimic_attack_type=URET|FGSM|PGD|CW] [--mimic_eval_attack_type=same|URET|FGSM|PGD|CW]"
+            echo "       [--physionetcinc_attack_type=URET|FGSM|PGD|CW] [--physionetcinc_eval_attack_type=same|URET|FGSM|PGD|CW]"
             echo "       [--ohiot1dm_generate_defense_datasets=true|false]"
             echo "       [--mimic_generate_defense_datasets=true|false]"
             echo "       [--physionetcinc_generate_defense_datasets=true|false]"
@@ -128,6 +149,7 @@ for arg in "$@"; do
             echo "       [--ohiot1dm_plot_defense_results=true|false]"
             echo "       [--mimic_plot_defense_results=true|false]"
             echo "       [--physionetcinc_plot_defense_results=true|false]"
+            echo "       [--cross_attack_plots=true|false]"
             exit 0
             ;;
         *) echo "Unknown option: $arg"; exit 1 ;;
@@ -167,6 +189,8 @@ RUN_PHYS_EVAL_DEF=$(echo "$RUN_PHYS_EVAL_DEF" | tr '[:upper:]' '[:lower:]')
 RUN_PHYS_DEF_TYPE=$(echo "$RUN_PHYS_DEF_TYPE" | tr '[:upper:]' '[:lower:]')
 RUN_PHYS_PLOT_DEF=$(echo "$RUN_PHYS_PLOT_DEF" | tr '[:upper:]' '[:lower:]')
 
+RUN_CROSS_ATTACK_PLOTS=$(echo "$RUN_CROSS_ATTACK_PLOTS" | tr '[:upper:]' '[:lower:]')
+
 RUN_GLOBAL_RISK=$(echo "$RUN_GLOBAL_RISK" | tr '[:upper:]' '[:lower:]')
 RUN_GLOBAL_CLUS=$(echo "$RUN_GLOBAL_CLUS" | tr '[:upper:]' '[:lower:]')
 
@@ -181,6 +205,40 @@ if [ "$RUN_GLOBAL_CLUS" = "true" ]; then
     RUN_OHIOT1DM_CLUS="true"
     RUN_MIMIC_CLUS="true"
     RUN_PHYS_CLUS="true"
+fi
+
+# ---------------------------
+# Compute attack-type namespaces
+# ---------------------------
+# NAMESPACE: output/<NAMESPACE>/{defense_dataset,defense_output} for the
+# generate/evaluate/plot stages. DATA_ATTACK: which output/<ATTACK_TYPE> directory
+# holds the benign/adversarial model outputs to source for defense generation.
+# ATTACK_TYPES: the set of attack types the model stage must produce output for.
+OHIOT1DM_NAMESPACE="$RUN_OHIOT1DM_ATTACK_TYPE"
+OHIOT1DM_DATA_ATTACK="$RUN_OHIOT1DM_ATTACK_TYPE"
+OHIOT1DM_ATTACK_TYPES=("$RUN_OHIOT1DM_ATTACK_TYPE")
+if [ "$RUN_OHIOT1DM_EVAL_ATTACK_TYPE" != "same" ] && [ "$RUN_OHIOT1DM_EVAL_ATTACK_TYPE" != "$RUN_OHIOT1DM_ATTACK_TYPE" ]; then
+    OHIOT1DM_NAMESPACE="${RUN_OHIOT1DM_ATTACK_TYPE}_to_${RUN_OHIOT1DM_EVAL_ATTACK_TYPE}"
+    OHIOT1DM_DATA_ATTACK="$RUN_OHIOT1DM_EVAL_ATTACK_TYPE"
+    OHIOT1DM_ATTACK_TYPES+=("$RUN_OHIOT1DM_EVAL_ATTACK_TYPE")
+fi
+
+MIMIC_NAMESPACE="$RUN_MIMIC_ATTACK_TYPE"
+MIMIC_DATA_ATTACK="$RUN_MIMIC_ATTACK_TYPE"
+MIMIC_ATTACK_TYPES=("$RUN_MIMIC_ATTACK_TYPE")
+if [ "$RUN_MIMIC_EVAL_ATTACK_TYPE" != "same" ] && [ "$RUN_MIMIC_EVAL_ATTACK_TYPE" != "$RUN_MIMIC_ATTACK_TYPE" ]; then
+    MIMIC_NAMESPACE="${RUN_MIMIC_ATTACK_TYPE}_to_${RUN_MIMIC_EVAL_ATTACK_TYPE}"
+    MIMIC_DATA_ATTACK="$RUN_MIMIC_EVAL_ATTACK_TYPE"
+    MIMIC_ATTACK_TYPES+=("$RUN_MIMIC_EVAL_ATTACK_TYPE")
+fi
+
+PHYS_NAMESPACE="$RUN_PHYS_ATTACK_TYPE"
+PHYS_DATA_ATTACK="$RUN_PHYS_ATTACK_TYPE"
+PHYS_ATTACK_TYPES=("$RUN_PHYS_ATTACK_TYPE")
+if [ "$RUN_PHYS_EVAL_ATTACK_TYPE" != "same" ] && [ "$RUN_PHYS_EVAL_ATTACK_TYPE" != "$RUN_PHYS_ATTACK_TYPE" ]; then
+    PHYS_NAMESPACE="${RUN_PHYS_ATTACK_TYPE}_to_${RUN_PHYS_EVAL_ATTACK_TYPE}"
+    PHYS_DATA_ATTACK="$RUN_PHYS_EVAL_ATTACK_TYPE"
+    PHYS_ATTACK_TYPES+=("$RUN_PHYS_EVAL_ATTACK_TYPE")
 fi
 
 # ---------------------------
@@ -211,6 +269,10 @@ run_defense_eval_scripts() {
     local target_dir=$2
     local dataset_key=$3
     local defense_type=$4
+    local namespace=$5
+
+    local data_dir_arg="output/${namespace}/defense_dataset"
+    local defense_out_base="output/${namespace}/defense_output"
 
     local defense_types=()
     if [ "$defense_type" = "all" ]; then
@@ -237,21 +299,21 @@ run_defense_eval_scripts() {
                 echo "Error: MAD-GAN environment not found: $madgan_env_path"
                 exit 1
             fi
-            run_in_env_path "$madgan_env_path" "$madgan_work_dir" "python evaluate_madgan.py"
+            run_in_env_path "$madgan_env_path" "$madgan_work_dir" "python evaluate_madgan.py ${defense_out_base}/MADGAN --data_dir=${data_dir_arg}"
         elif [ "$dtype" = "knn" ]; then
             local knn_script="defenses/evaluate_knn.py"
             if [ ! -f "$SCRIPT_DIR/$target_dir/$knn_script" ]; then
                 echo "Error: Defense evaluation script not found: $target_dir/$knn_script"
                 exit 1
             fi
-            run_in_env "$env_dir" "$target_dir" "python $knn_script"
+            run_in_env "$env_dir" "$target_dir" "python $knn_script ${defense_out_base}/KNN --data_dir=${data_dir_arg}"
         elif [ "$dtype" = "oneclasssvm" ]; then
             local ocsvm_script="defenses/evaluate_oneclasssvm.py"
             if [ ! -f "$SCRIPT_DIR/$target_dir/$ocsvm_script" ]; then
                 echo "Error: Defense evaluation script not found: $target_dir/$ocsvm_script"
                 exit 1
             fi
-            run_in_env "$env_dir" "$target_dir" "python $ocsvm_script"
+            run_in_env "$env_dir" "$target_dir" "python $ocsvm_script ${defense_out_base}/OneClassSVM --data_dir=${data_dir_arg}"
         fi
     done
 }
@@ -265,14 +327,16 @@ if [ "$RUN_OHIOT1DM_PRE" = "true" ]; then
 fi
 
 if [ "$RUN_OHIOT1DM_MOD" = "true" ]; then
-    if [ "$RUN_OHIOT1DM_DATASET" = "all" ]; then
-        echo "Running OhioT1DM model for all datasets (2018 and 2020)..."
-        run_in_env "venv_ohiot1dm" "OhioT1DM" "python drtf.py data/processed/2018data output/2018"
-        run_in_env "venv_ohiot1dm" "OhioT1DM" "python drtf.py data/processed/2020data output/2020"
-    else
-        echo "Running OhioT1DM model for dataset ${RUN_OHIOT1DM_DATASET}..."
-        run_in_env "venv_ohiot1dm" "OhioT1DM" "python drtf.py data/processed/${RUN_OHIOT1DM_DATASET}data output/${RUN_OHIOT1DM_DATASET}"
-    fi
+    for ATYPE in "${OHIOT1DM_ATTACK_TYPES[@]}"; do
+        if [ "$RUN_OHIOT1DM_DATASET" = "all" ]; then
+            echo "Running OhioT1DM model for all datasets (2018 and 2020) with attack type ${ATYPE}..."
+            run_in_env "venv_ohiot1dm" "OhioT1DM" "python drtf.py data/processed/2018data output/${ATYPE}/2018 --attack_type=${ATYPE}"
+            run_in_env "venv_ohiot1dm" "OhioT1DM" "python drtf.py data/processed/2020data output/${ATYPE}/2020 --attack_type=${ATYPE}"
+        else
+            echo "Running OhioT1DM model for dataset ${RUN_OHIOT1DM_DATASET} with attack type ${ATYPE}..."
+            run_in_env "venv_ohiot1dm" "OhioT1DM" "python drtf.py data/processed/${RUN_OHIOT1DM_DATASET}data output/${ATYPE}/${RUN_OHIOT1DM_DATASET} --attack_type=${ATYPE}"
+        fi
+    done
 fi
 
 if [ "$RUN_MIMIC_PRE" = "true" ]; then
@@ -286,63 +350,67 @@ if [ "$RUN_MIMIC_MOD_TRAIN" = "true" ]; then
 fi
 
 if [ "$RUN_MIMIC_MOD_TEST" = "true" ]; then
-    echo "Running MIMIC model testing..."
-    run_in_env "venv_mimic" "MIMIC" "python run.py --train_test 0"
+    for ATYPE in "${MIMIC_ATTACK_TYPES[@]}"; do
+        echo "Running MIMIC model testing with attack type ${ATYPE}..."
+        run_in_env "venv_mimic" "MIMIC" "python run.py --train_test 0 --out_dir output/${ATYPE} --attack_type=${ATYPE}"
+    done
 fi
 
 if [ "$RUN_PHYSIONET_MOD" = "true" ]; then
-    if [ "$RUN_PHYSIONET_DATASET" = "all" ]; then
-        echo "Running PhysioNetCinC model for all datasets (A and B)..."
-        run_in_env "venv_physionetcinc" "PhysioNetCinC" "python driver.py input/training_setA output/training_setA"
-        run_in_env "venv_physionetcinc" "PhysioNetCinC" "python driver.py input/training_setB output/training_setB"
-    else
-        echo "Running PhysioNetCinC model for dataset ${RUN_PHYSIONET_DATASET}..."
-        run_in_env "venv_physionetcinc" "PhysioNetCinC" "python driver.py input/training_set${RUN_PHYSIONET_DATASET} output/training_set${RUN_PHYSIONET_DATASET}"
-    fi
+    for ATYPE in "${PHYS_ATTACK_TYPES[@]}"; do
+        if [ "$RUN_PHYSIONET_DATASET" = "all" ]; then
+            echo "Running PhysioNetCinC model for all datasets (A and B) with attack type ${ATYPE}..."
+            run_in_env "venv_physionetcinc" "PhysioNetCinC" "python driver.py input/training_setA output/${ATYPE}/training_setA --attack_type=${ATYPE}"
+            run_in_env "venv_physionetcinc" "PhysioNetCinC" "python driver.py input/training_setB output/${ATYPE}/training_setB --attack_type=${ATYPE}"
+        else
+            echo "Running PhysioNetCinC model for dataset ${RUN_PHYSIONET_DATASET} with attack type ${ATYPE}..."
+            run_in_env "venv_physionetcinc" "PhysioNetCinC" "python driver.py input/training_set${RUN_PHYSIONET_DATASET} output/${ATYPE}/training_set${RUN_PHYSIONET_DATASET} --attack_type=${ATYPE}"
+        fi
+    done
 fi
 
 # ---------------------------
 # Risk Profiling and Clustering
 # ---------------------------
 if [ "$RUN_OHIOT1DM_RISK" = "true" ]; then
-    echo "Running Risk Profile for OhioT1DM..."
-    run_in_env "venv_ohiot1dm" "OhioT1DM" "python risk_profile.py"
+    echo "Running Risk Profile for OhioT1DM (attack type ${RUN_OHIOT1DM_ATTACK_TYPE})..."
+    run_in_env "venv_ohiot1dm" "OhioT1DM" "python risk_profile.py output/${RUN_OHIOT1DM_ATTACK_TYPE}"
 fi
 
 if [ "$RUN_OHIOT1DM_CLUS" = "true" ]; then
-    echo "Running Clustering for OhioT1DM..."
+    echo "Running Clustering for OhioT1DM (attack type ${RUN_OHIOT1DM_ATTACK_TYPE})..."
     if [ "$RUN_OHIOT1DM_CLUS_METHOD" = "kmeans" ]; then
-        run_in_env "venv_ohiot1dm" "OhioT1DM" "python kmeans_cluster.py"
+        run_in_env "venv_ohiot1dm" "OhioT1DM" "python kmeans_cluster.py output/${RUN_OHIOT1DM_ATTACK_TYPE} output/${RUN_OHIOT1DM_ATTACK_TYPE}/cluster_output"
     else
-        run_in_env "venv_ohiot1dm" "OhioT1DM" "python hierarchical_cluster.py"
+        run_in_env "venv_ohiot1dm" "OhioT1DM" "python hierarchical_cluster.py output/${RUN_OHIOT1DM_ATTACK_TYPE} output/${RUN_OHIOT1DM_ATTACK_TYPE}/cluster_output"
     fi
 fi
 
 if [ "$RUN_MIMIC_RISK" = "true" ]; then
-    echo "Running Risk Profile for MIMIC..."
-    run_in_env "venv_mimic" "MIMIC" "python risk_profile.py"
+    echo "Running Risk Profile for MIMIC (attack type ${RUN_MIMIC_ATTACK_TYPE})..."
+    run_in_env "venv_mimic" "MIMIC" "python risk_profile.py output/${RUN_MIMIC_ATTACK_TYPE}"
 fi
 
 if [ "$RUN_MIMIC_CLUS" = "true" ]; then
-    echo "Running Clustering for MIMIC..."
+    echo "Running Clustering for MIMIC (attack type ${RUN_MIMIC_ATTACK_TYPE})..."
     if [ "$RUN_MIMIC_CLUS_METHOD" = "kmeans" ]; then
-        run_in_env "venv_mimic" "MIMIC" "python kmeans_cluster.py"
+        run_in_env "venv_mimic" "MIMIC" "python kmeans_cluster.py output/${RUN_MIMIC_ATTACK_TYPE} output/${RUN_MIMIC_ATTACK_TYPE}/cluster_output"
     else
-        run_in_env "venv_mimic" "MIMIC" "python hierarchical_cluster.py"
+        run_in_env "venv_mimic" "MIMIC" "python hierarchical_cluster.py output/${RUN_MIMIC_ATTACK_TYPE} output/${RUN_MIMIC_ATTACK_TYPE}/cluster_output"
     fi
 fi
 
 if [ "$RUN_PHYS_RISK" = "true" ]; then
-    echo "Running Risk Profile for PhysioNetCinC..."
-    run_in_env "venv_physionetcinc" "PhysioNetCinC" "python risk_profile.py"
+    echo "Running Risk Profile for PhysioNetCinC (attack type ${RUN_PHYS_ATTACK_TYPE})..."
+    run_in_env "venv_physionetcinc" "PhysioNetCinC" "python risk_profile.py output/${RUN_PHYS_ATTACK_TYPE}"
 fi
 
 if [ "$RUN_PHYS_CLUS" = "true" ]; then
-    echo "Running Clustering for PhysioNetCinC..."
+    echo "Running Clustering for PhysioNetCinC (attack type ${RUN_PHYS_ATTACK_TYPE})..."
     if [ "$RUN_PHYS_CLUS_METHOD" = "kmeans" ]; then
-        run_in_env "venv_physionetcinc" "PhysioNetCinC" "python kmeans_cluster.py"
+        run_in_env "venv_physionetcinc" "PhysioNetCinC" "python kmeans_cluster.py output/${RUN_PHYS_ATTACK_TYPE} output/${RUN_PHYS_ATTACK_TYPE}/cluster_output"
     else
-        run_in_env "venv_physionetcinc" "PhysioNetCinC" "python hierarchical_cluster.py"
+        run_in_env "venv_physionetcinc" "PhysioNetCinC" "python hierarchical_cluster.py output/${RUN_PHYS_ATTACK_TYPE} output/${RUN_PHYS_ATTACK_TYPE}/cluster_output"
     fi
 fi
 
@@ -350,54 +418,65 @@ fi
 # Generate Defense Datasets
 # ---------------------------
 if [ "$RUN_OHIOT1DM_GEN_DEF" = "true" ]; then
-    echo "Generating Defense Dataset for OhioT1DM..."
-    run_in_env "venv_ohiot1dm" "OhioT1DM" "python generate_defense_dataset.py"
+    echo "Generating Defense Dataset for OhioT1DM (namespace ${OHIOT1DM_NAMESPACE})..."
+    run_in_env "venv_ohiot1dm" "OhioT1DM" "python generate_defense_dataset.py output/${RUN_OHIOT1DM_ATTACK_TYPE}/cluster_output output/${OHIOT1DM_NAMESPACE}/defense_dataset --data_dir=output/${OHIOT1DM_DATA_ATTACK}"
 fi
 
 if [ "$RUN_MIMIC_GEN_DEF" = "true" ]; then
-    echo "Generating Defense Dataset for MIMIC..."
-    run_in_env "venv_mimic" "MIMIC" "python generate_defense_dataset.py"
+    echo "Generating Defense Dataset for MIMIC (namespace ${MIMIC_NAMESPACE})..."
+    run_in_env "venv_mimic" "MIMIC" "python generate_defense_dataset.py output/${RUN_MIMIC_ATTACK_TYPE}/cluster_output output/${MIMIC_NAMESPACE}/defense_dataset --data_dir=output/${MIMIC_DATA_ATTACK}"
 fi
 
 if [ "$RUN_PHYS_GEN_DEF" = "true" ]; then
-    echo "Generating Defense Dataset for PhysioNetCinC..."
-    run_in_env "venv_physionetcinc" "PhysioNetCinC" "python generate_defense_dataset.py"
+    echo "Generating Defense Dataset for PhysioNetCinC (namespace ${PHYS_NAMESPACE})..."
+    run_in_env "venv_physionetcinc" "PhysioNetCinC" "python generate_defense_dataset.py output/${RUN_PHYS_ATTACK_TYPE}/cluster_output output/${PHYS_NAMESPACE}/defense_dataset --data_dir=output/${PHYS_DATA_ATTACK}"
 fi
 
 # ---------------------------
 # Evaluate Defenses
 # ---------------------------
 if [ "$RUN_OHIOT1DM_EVAL_DEF" = "true" ]; then
-    echo "Evaluating defenses for OhioT1DM (${RUN_OHIOT1DM_DEF_TYPE})..."
-    run_defense_eval_scripts "venv_ohiot1dm" "OhioT1DM" "ohiot1dm" "$RUN_OHIOT1DM_DEF_TYPE"
+    echo "Evaluating defenses for OhioT1DM (${RUN_OHIOT1DM_DEF_TYPE}, namespace ${OHIOT1DM_NAMESPACE})..."
+    run_defense_eval_scripts "venv_ohiot1dm" "OhioT1DM" "ohiot1dm" "$RUN_OHIOT1DM_DEF_TYPE" "$OHIOT1DM_NAMESPACE"
 fi
 
 if [ "$RUN_MIMIC_EVAL_DEF" = "true" ]; then
-    echo "Evaluating defenses for MIMIC (${RUN_MIMIC_DEF_TYPE})..."
-    run_defense_eval_scripts "venv_mimic" "MIMIC" "mimic" "$RUN_MIMIC_DEF_TYPE"
+    echo "Evaluating defenses for MIMIC (${RUN_MIMIC_DEF_TYPE}, namespace ${MIMIC_NAMESPACE})..."
+    run_defense_eval_scripts "venv_mimic" "MIMIC" "mimic" "$RUN_MIMIC_DEF_TYPE" "$MIMIC_NAMESPACE"
 fi
 
 if [ "$RUN_PHYS_EVAL_DEF" = "true" ]; then
-    echo "Evaluating defenses for PhysioNetCinC (${RUN_PHYS_DEF_TYPE})..."
-    run_defense_eval_scripts "venv_physionetcinc" "PhysioNetCinC" "physionetcinc" "$RUN_PHYS_DEF_TYPE"
+    echo "Evaluating defenses for PhysioNetCinC (${RUN_PHYS_DEF_TYPE}, namespace ${PHYS_NAMESPACE})..."
+    run_defense_eval_scripts "venv_physionetcinc" "PhysioNetCinC" "physionetcinc" "$RUN_PHYS_DEF_TYPE" "$PHYS_NAMESPACE"
 fi
 
 # ---------------------------
 # Plot Defense Results
 # ---------------------------
 if [ "$RUN_OHIOT1DM_PLOT_DEF" = "true" ]; then
-    echo "Plotting defense results for OhioT1DM..."
-    run_in_env_path "OhioT1DM/venv_ohiot1dm" "." "python plot_defense_results.py OhioT1DM OhioT1DM/output/defense_output"
+    echo "Plotting defense results for OhioT1DM (namespace ${OHIOT1DM_NAMESPACE})..."
+    run_in_env_path "OhioT1DM/venv_ohiot1dm" "." "python plot_defense_results.py OhioT1DM OhioT1DM/output/${OHIOT1DM_NAMESPACE}/defense_output"
 fi
 
 if [ "$RUN_MIMIC_PLOT_DEF" = "true" ]; then
-    echo "Plotting defense results for MIMIC..."
-    run_in_env_path "MIMIC/venv_mimic" "." "python plot_defense_results.py MIMIC MIMIC/output/defense_output"
+    echo "Plotting defense results for MIMIC (namespace ${MIMIC_NAMESPACE})..."
+    run_in_env_path "MIMIC/venv_mimic" "." "python plot_defense_results.py MIMIC MIMIC/output/${MIMIC_NAMESPACE}/defense_output"
 fi
 
 if [ "$RUN_PHYS_PLOT_DEF" = "true" ]; then
-    echo "Plotting defense results for PhysioNetCinC..."
-    run_in_env_path "PhysioNetCinC/venv_physionetcinc" "." "python plot_defense_results.py PhysioNetCinC PhysioNetCinC/output/defense_output"
+    echo "Plotting defense results for PhysioNetCinC (namespace ${PHYS_NAMESPACE})..."
+    run_in_env_path "PhysioNetCinC/venv_physionetcinc" "." "python plot_defense_results.py PhysioNetCinC PhysioNetCinC/output/${PHYS_NAMESPACE}/defense_output"
+fi
+
+# ---------------------------
+# Cross-attack comparison figures (cross-dataset)
+# ---------------------------
+# Auto-discovers all namespaced attack-type / cross-attack outputs across the three
+# datasets and emits comparison figures + summary CSVs under cross_attack_figures/. Runs
+# once from the repo root inside OhioT1DM's venv (which provides matplotlib and scipy).
+if [ "$RUN_CROSS_ATTACK_PLOTS" = "true" ]; then
+    echo "Generating cross-attack comparison figures (attack-type comparison, cross-attack heatmaps, box plots)..."
+    run_in_env_path "OhioT1DM/venv_ohiot1dm" "." "python plot_cross_attack_results.py"
 fi
 
 echo "Pipeline completed successfully."

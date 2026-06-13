@@ -94,9 +94,10 @@ def combine_results(output_directory):
 
 
 
-def evaluate_knn(output_directory):
+def evaluate_knn(output_directory, data_dir=None):
     os.makedirs(output_directory, exist_ok=True)
-    data_dir = Path(__file__).resolve().parents[1] / "output" / "defense_dataset"
+    if data_dir is None:
+        data_dir = Path(__file__).resolve().parents[1] / "output" / "defense_dataset"
 
     neigh = KNN(n_neighbors=7, contamination=0.5)
 
@@ -259,11 +260,13 @@ if __name__ == '__main__':
 		epilog="Example: python evaluate_knn.py output"
 	)
 	parser.add_argument("out_dir", nargs="?", default="output/defense_output/KNN", help="Output directory")
+	parser.add_argument("--data_dir", default="output/defense_dataset", help="Directory containing generated defense dataset .npy files")
 
 	args = parser.parse_args()
 
 	dataset_root = Path(__file__).resolve().parents[1]
-    
-	output_directory = dataset_root / args.out_dir
 
-	evaluate_knn(output_directory)
+	output_directory = dataset_root / args.out_dir
+	data_directory = dataset_root / args.data_dir
+
+	evaluate_knn(output_directory, data_directory)

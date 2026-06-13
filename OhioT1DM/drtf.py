@@ -70,6 +70,9 @@ subjects = []
 outstr=''
 # outstr='TEST'
 
+#CLI override for the adversarial attack type (URET/FGSM/PGD/CW); None falls back to pipeline_config.yml
+attack_type_override = None
+
 def fgsm_attack(model, x, y, epsilon, backcast_length, nv, device, clip_min=180, clip_max=499):
 
 	# reshape and convert once
@@ -112,6 +115,101 @@ def fgsm_attack(model, x, y, epsilon, backcast_length, nv, device, clip_min=180,
 		)
 
 	return x_adv.detach().cpu().numpy().reshape(-1, backcast_length * nv)
+
+def pgd_attack(model, x, y, epsilon, alpha, num_steps, backcast_length, nv, device, clip_min=180, clip_max=499):
+
+	# reshape and convert once
+	x_orig = torch.tensor(x.reshape(-1, backcast_length, nv), dtype=torch.float32, device=device)
+	x_adv = x_orig.clone()
+	y = torch.tensor(y, dtype=torch.float32, device=device)
+	num_batches = (len(x_adv) + BATCHSIZE - 1) // BATCHSIZE
+
+	model.train()
+
+	for i, start in enumerate(tqdm(range(0, len(x_adv), BATCHSIZE), total=num_batches, desc="PGD attack")):
+		end = min(start + BATCHSIZE, len(x_adv))
+
+		x_batch_orig = x_orig[start:end]
+		x_batch_adv = x_adv[start:end].clone().requires_grad_(True)
+		y_batch = y[start:end]
+
+		for step in range(num_steps):
+			# IMPORTANT: do NOT wrap in torch.tensor()
+			outputs, _, _, _, _ = model(x_batch_adv)
+
+			loss = mse(outputs, y_batch)
+
+			model.zero_grad()
+
+			if x_batch_adv.grad is not None:
+				x_batch_adv.grad.zero_()
+			loss.backward()
+
+			grad = x_batch_adv.grad
+
+			# perturbation = alpha * grad.sign()
+			perturbation = torch.zeros_like(grad)
+			perturbation[:, :, 0] = alpha * grad[:, :, 0].sign()
+
+			x_batch_adv.data += perturbation
+
+			# project channel 0 back into the epsilon-ball around x_batch_orig
+			x_batch_adv.data[:, :, 0] = torch.max(
+				torch.min(x_batch_adv.data[:, :, 0], x_batch_orig[:, :, 0] + epsilon),
+				x_batch_orig[:, :, 0] - epsilon
+			)
+
+			x_batch_adv.data[:, :, 0] = torch.clamp(
+				x_batch_adv.data[:, :, 0],
+				clip_min,
+				clip_max
+			)
+
+		x_adv[start:end] = x_batch_adv.detach()
+
+	return x_adv.cpu().numpy().reshape(-1, backcast_length * nv)
+
+def cw_attack(model, x, y, c, lr, num_steps, backcast_length, nv, device, clip_min=180, clip_max=499):
+
+	# reshape and convert once
+	x_orig = torch.tensor(x.reshape(-1, backcast_length, nv), dtype=torch.float32, device=device)
+	x_adv = x_orig.clone()
+	y = torch.tensor(y, dtype=torch.float32, device=device)
+	num_batches = (len(x_adv) + BATCHSIZE - 1) // BATCHSIZE
+
+	model.train()
+
+	for i, start in enumerate(tqdm(range(0, len(x_adv), BATCHSIZE), total=num_batches, desc="C&W attack")):
+		end = min(start + BATCHSIZE, len(x_adv))
+
+		x_batch_orig = x_orig[start:end]
+		y_batch = y[start:end]
+
+		# perturbation applied to channel 0, optimized via Adam
+		delta = torch.zeros_like(x_batch_orig[:, :, 0], requires_grad=True)
+		optimizer = optim.Adam([delta], lr=lr)
+
+		for step in range(num_steps):
+			x_batch_adv = x_batch_orig.clone()
+			x_batch_adv[:, :, 0] = torch.clamp(x_batch_orig[:, :, 0] + delta, clip_min, clip_max)
+
+			outputs, _, _, _, _ = model(x_batch_adv)
+
+			loss_attack = mse(outputs, y_batch)
+			loss_perturb = torch.mean(delta ** 2)
+
+			# maximize the attack loss while keeping the perturbation small
+			loss = loss_perturb - c * loss_attack
+
+			optimizer.zero_grad()
+			loss.backward()
+			optimizer.step()
+
+		x_batch_adv = x_batch_orig.clone()
+		x_batch_adv[:, :, 0] = torch.clamp(x_batch_orig[:, :, 0] + delta, clip_min, clip_max)
+		x_adv[start:end] = x_batch_adv.detach()
+
+	return x_adv.cpu().numpy().reshape(-1, backcast_length * nv)
 # N's end
 
 loopsthrough=1
@@ -356,8 +454,14 @@ def train_and_evaluate(curmodel,maindir,forecast_length,backcast_length,sub,base
 	else:
 		attack_cfg = {"ohiot1dm_attack_type": "URET"}
 
-	if attack_cfg.get("ohiot1dm_attack_type", "URET") == "FGSM":
+	attack_type = attack_type_override or attack_cfg.get("ohiot1dm_attack_type", "URET")
+
+	if attack_type == "FGSM":
 		allPatients_adversarial = fgsm_attack(model=net, x=allPatients_benign, y=allTargets_benign, epsilon=20, clip_min=90, clip_max=499, backcast_length=backcast_length, nv=nv, device=device)
+	elif attack_type == "PGD":
+		allPatients_adversarial = pgd_attack(model=net, x=allPatients_benign, y=allTargets_benign, epsilon=20, alpha=4, num_steps=10, clip_min=90, clip_max=499, backcast_length=backcast_length, nv=nv, device=device)
+	elif attack_type == "CW":
+		allPatients_adversarial = cw_attack(model=net, x=allPatients_benign, y=allTargets_benign, c=1.0, lr=1.0, num_steps=50, clip_min=90, clip_max=499, backcast_length=backcast_length, nv=nv, device=device)
 	else:
 		explorer = process_config_file(cf, net, feature_extractor=feature_extractor, input_processor_list=[])
 		explorer.scoring_function = mse
@@ -999,6 +1103,7 @@ if __name__ == '__main__':
 	)
 	parser.add_argument("data_dir", nargs="?", default="data/processed/2020data", help="Directory containing processed dataset")
 	parser.add_argument("out_dir", nargs="?", default="output/2020", help="Output directory")
+	parser.add_argument("--attack_type", choices=["URET", "FGSM", "PGD", "CW"], default=None, help="Override the adversarial attack type (defaults to pipeline_config.yml)")
 
 	args = parser.parse_args()
 
@@ -1006,5 +1111,6 @@ if __name__ == '__main__':
 
 	year = str(SCRIPT_DIR / args.data_dir)
 	outstr = str(SCRIPT_DIR / args.out_dir)
+	attack_type_override = args.attack_type
 
 	main()

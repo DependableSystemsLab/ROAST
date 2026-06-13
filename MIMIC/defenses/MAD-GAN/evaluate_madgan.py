@@ -86,9 +86,12 @@ def combine_results(output_directory):
         merged.to_csv(f, index=False, header=False)
 
 
-def evaluate_madgan(output_directory):
+def evaluate_madgan(output_directory, data_dir=None):
 
     os.makedirs(output_directory, exist_ok=True)
+
+    if data_dir is not None:
+        os.environ["ROAST_DEFENSE_DATASET_DIR"] = str(data_dir)
 
     # with is like your try .. finally block in this case
     with open('./experiments/settings/mimic.txt', 'r') as train_file:
@@ -372,13 +375,15 @@ if __name__ == '__main__':
 		epilog="Example: python evaluate_madgan.py output"
 	)
 	parser.add_argument("out_dir", nargs="?", default="output/defense_output/MADGAN", help="Output directory")
+	parser.add_argument("--data_dir", default="output/defense_dataset", help="Directory containing generated defense dataset .npy files")
 
 	args = parser.parse_args()
 
 	dataset_root = Path(__file__).resolve().parents[2]
-    
-	output_directory = dataset_root / args.out_dir
 
-	evaluate_madgan(output_directory)
+	output_directory = dataset_root / args.out_dir
+	data_directory = dataset_root / args.data_dir
+
+	evaluate_madgan(output_directory, data_directory)
 
     

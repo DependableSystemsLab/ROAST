@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import os
 import pdb
 import re
 from time import time
@@ -484,7 +485,7 @@ def kdd99_test(seq_length, seq_step, num_signals):
 def sepsis(year, seq_length, seq_step, num_signals):
     # N's start
     SCRIPT_DIR = Path(__file__).resolve().parent
-    data_dir = SCRIPT_DIR.parent.parent / "output" / "defense_dataset"
+    data_dir = Path(os.environ.get("ROAST_DEFENSE_DATASET_DIR", str(SCRIPT_DIR.parent.parent / "output" / "defense_dataset")))
     train = np.array(np.load(str(data_dir)+'/sepsis_train_'+year+'.npy'), dtype=float)
     # N's end
     print('load sepsis_train from .npy')
@@ -540,7 +541,7 @@ def sepsis(year, seq_length, seq_step, num_signals):
 def sepsis_test(year, seq_length, seq_step, num_signals):
     # N's start
     SCRIPT_DIR = Path(__file__).resolve().parent
-    data_dir = SCRIPT_DIR.parent.parent / "output" / "defense_dataset"
+    data_dir = Path(os.environ.get("ROAST_DEFENSE_DATASET_DIR", str(SCRIPT_DIR.parent.parent / "output" / "defense_dataset")))
     test = np.array(np.load(str(data_dir)+'/sepsis_test_'+year+'.npy'), dtype=float)
     # N's end
     print('load sepsis_test from .npy')
@@ -599,7 +600,7 @@ def sepsis_test(year, seq_length, seq_step, num_signals):
 def sepsis_patient_wise(year, patient, seq_length, seq_step, num_signals):
     # N's start
     SCRIPT_DIR = Path(__file__).resolve().parent
-    data_dir = SCRIPT_DIR.parent.parent / "output" / "defense_dataset"
+    data_dir = Path(os.environ.get("ROAST_DEFENSE_DATASET_DIR", str(SCRIPT_DIR.parent.parent / "output" / "defense_dataset")))
     train = np.array(np.load(str(data_dir)+'/sepsis_train_'+year+'_'+patient+'.npy'), dtype=float)
     # N's end
     print('load sepsis_train from .npy')
@@ -649,7 +650,7 @@ def sepsis_patient_wise(year, patient, seq_length, seq_step, num_signals):
 def sepsis_test_patient_wise(year, patient, seq_length, seq_step, num_signals):
     # N's start
     SCRIPT_DIR = Path(__file__).resolve().parent
-    data_dir = SCRIPT_DIR.parent.parent / "output" / "defense_dataset"
+    data_dir = Path(os.environ.get("ROAST_DEFENSE_DATASET_DIR", str(SCRIPT_DIR.parent.parent / "output" / "defense_dataset")))
     test = np.array(np.load(str(data_dir)+'/sepsis_test_'+year+'_'+patient+'.npy'), dtype=float)
     # N's end
     print('load sepsis_test from .npy')

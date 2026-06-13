@@ -114,6 +114,7 @@ if __name__ == '__main__':
     )
     parser.add_argument("--out_dir", nargs="?", default="output", help="Output directory")
     parser.add_argument("--train_test", nargs="?", default="1", help="Train/test flag (1 for train, 0 for test)")
+    parser.add_argument("--attack_type", choices=["URET", "FGSM", "PGD", "CW"], default=None, help="Override the adversarial attack type (defaults to pipeline_config.yml)")
 
     args = parser.parse_args()
 
@@ -129,4 +130,4 @@ if __name__ == '__main__':
     output_dir = str(SCRIPT_DIR / args.out_dir)
     #def __init__(self,data_icu,diag_flag,proc_flag,out_flag,chart_flag,med_flag,lab_flag,model_type,k_fold,oversampling,model_name,train):
     #model=dl_train.DL_models(data_icu,diag_flag,proc_flag,out_flag,chart_flag,med_flag,False,radio_input6.value,cv,oversampling=radio_input8.value=='True',model_name='attn_icu_read',train=True)
-    model=dl_train.DL_models(True,True,True,True,True,True,False,'Time-series LSTM',int(5),True,model_name='attn_icu_read',train=train, output_dir=output_dir)
+    model=dl_train.DL_models(True,True,True,True,True,True,False,'Time-series LSTM',int(5),True,model_name='attn_icu_read',train=train, output_dir=output_dir, attack_type_override=args.attack_type)

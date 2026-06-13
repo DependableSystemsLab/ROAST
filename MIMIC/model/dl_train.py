@@ -71,8 +71,9 @@ def feature_extractor(x):
 # N's end
 
 class DL_models():
-    def __init__(self,data_icu,diag_flag,proc_flag,out_flag,chart_flag,med_flag,lab_flag,model_type,k_fold,oversampling,model_name,train, output_dir):
+    def __init__(self,data_icu,diag_flag,proc_flag,out_flag,chart_flag,med_flag,lab_flag,model_type,k_fold,oversampling,model_name,train, output_dir, attack_type_override=None):
         self.save_path="saved_models/"+model_name+".tar"
+        self.attack_type_override=attack_type_override
         self.data_icu=data_icu
         self.diag_flag,self.proc_flag,self.out_flag,self.chart_flag,self.med_flag,self.lab_flag=diag_flag,proc_flag,out_flag,chart_flag,med_flag,lab_flag
         self.modalities=self.diag_flag+self.proc_flag+self.out_flag+self.chart_flag+self.med_flag+self.lab_flag
@@ -328,7 +329,7 @@ class DL_models():
             else:
                 attack_cfg = {"mimic_attack_type": "URET"}
             
-            attack_type = attack_cfg.get("mimic_attack_type", "URET")
+            attack_type = self.attack_type_override or attack_cfg.get("mimic_attack_type", "URET")
 
             # CALL ATTACK HERE
             if adversary:
@@ -363,10 +364,82 @@ class DL_models():
                     allPatients_adversarial = [meds, chart_adv, out, proc, lab, stat, demo]
                     
                     # Re-run forward pass to get final adversarial output/logits
-                    output, logits = self.net(meds.to(self.device), chart_adv, out.to(self.device), 
-                                            proc.to(self.device), lab.to(self.device), 
+                    output, logits = self.net(meds.to(self.device), chart_adv, out.to(self.device),
+                                            proc.to(self.device), lab.to(self.device),
                                             stat.to(self.device), demo.to(self.device))
-                    
+
+                elif attack_type == "PGD":
+                    # --- PGD Attack ---
+                    eps = 0.2
+                    alpha = 0.04
+                    num_steps = 10
+
+                    chart_orig = chart.clone().detach().float().to(self.device)
+                    chart_adv = chart_orig.clone()
+
+                    self.net.train()
+                    for step in range(num_steps):
+                        chart_adv = chart_adv.clone().detach().requires_grad_(True)
+                        output, logits = self.net(meds.to(self.device), chart_adv, out.to(self.device),
+                                                proc.to(self.device), lab.to(self.device),
+                                                stat.to(self.device), demo.to(self.device))
+
+                        # Target label 0 (healthy), same direction as FGSM
+                        target = torch.zeros_like(output).to(self.device)
+                        loss = F.binary_cross_entropy(output, target)
+
+                        self.net.zero_grad()
+                        loss.backward()
+
+                        with torch.no_grad():
+                            chart_adv = chart_adv - alpha * chart_adv.grad.sign()
+                            chart_adv = torch.max(torch.min(chart_adv, chart_orig + eps), chart_orig - eps)
+                            chart_adv = torch.clamp(chart_adv, min=0.0)
+                    self.net.eval()
+
+                    allPatients_adversarial = [meds, chart_adv, out, proc, lab, stat, demo]
+
+                    output, logits = self.net(meds.to(self.device), chart_adv, out.to(self.device),
+                                            proc.to(self.device), lab.to(self.device),
+                                            stat.to(self.device), demo.to(self.device))
+
+                elif attack_type == "CW":
+                    # --- C&W Attack ---
+                    c = 1.0
+                    lr = 0.05
+                    num_steps = 50
+
+                    chart_orig = chart.clone().detach().float().to(self.device)
+                    delta = torch.zeros_like(chart_orig, requires_grad=True)
+                    optimizer = optim.Adam([delta], lr=lr)
+
+                    self.net.train()
+                    for step in range(num_steps):
+                        chart_adv = torch.clamp(chart_orig + delta, min=0.0)
+                        output, logits = self.net(meds.to(self.device), chart_adv, out.to(self.device),
+                                                proc.to(self.device), lab.to(self.device),
+                                                stat.to(self.device), demo.to(self.device))
+
+                        # Target label 0 (healthy), same direction as FGSM
+                        target = torch.zeros_like(output).to(self.device)
+                        loss_attack = F.binary_cross_entropy(output, target)
+                        loss_perturb = torch.mean(delta ** 2)
+
+                        # attack succeeds when BCE toward class 0 is small, so it's added (not subtracted)
+                        loss = loss_perturb + c * loss_attack
+
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+                    self.net.eval()
+
+                    chart_adv = torch.clamp(chart_orig + delta, min=0.0)
+                    allPatients_adversarial = [meds, chart_adv, out, proc, lab, stat, demo]
+
+                    output, logits = self.net(meds.to(self.device), chart_adv, out.to(self.device),
+                                            proc.to(self.device), lab.to(self.device),
+                                            stat.to(self.device), demo.to(self.device))
+
                 else:
                     # --- URET Attack ---
                     explorer = process_config_file(cf, self.net, feature_extractor=feature_extractor, input_processor_list=[])

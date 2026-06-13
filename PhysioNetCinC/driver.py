@@ -35,6 +35,7 @@ if __name__ == '__main__':
     )
     parser.add_argument("data_dir", nargs="?", default="input", help="Directory containing dataset")
     parser.add_argument("out_dir", nargs="?", default="output", help="Output directory")
+    parser.add_argument("--attack_type", choices=["URET", "FGSM", "PGD", "CW"], default=None, help="Override the adversarial attack type (defaults to pipeline_config.yml)")
 
     args = parser.parse_args()
 
@@ -75,11 +76,11 @@ if __name__ == '__main__':
         # N's end
         for t in range(num_rows):
             current_data = data[:t+1]
-            current_score, current_label = get_sepsis_score(current_data, model)
+            current_score, current_label = get_sepsis_score(current_data, model, attack_type_override=args.attack_type)
             scores[t] = current_score
             labels[t] = current_label
             # N's start
-            current_score_adversarial, current_label_adversarial = get_sepsis_score(current_data, model, adversary=True, adversarial_data=adversarial_data)
+            current_score_adversarial, current_label_adversarial = get_sepsis_score(current_data, model, adversary=True, adversarial_data=adversarial_data, attack_type_override=args.attack_type)
             scores_adversarial[t] = current_score_adversarial
             labels_adversarial[t] = current_label_adversarial
             # N's end

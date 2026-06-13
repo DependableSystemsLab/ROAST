@@ -11,6 +11,7 @@ import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import optim
 
 # N's start
 from pathlib import Path
@@ -56,7 +57,7 @@ class Model(nn.Module):
 
 
 # N's start
-def get_sepsis_score(data, model, adversary=False, adversarial_data=None):
+def get_sepsis_score(data, model, adversary=False, adversarial_data=None, attack_type_override=None):
 # N's end
     data = pd.DataFrame(data)
     data = data.fillna(method='ffill')
@@ -80,7 +81,7 @@ def get_sepsis_score(data, model, adversary=False, adversarial_data=None):
     else:
         attack_cfg = {"physionetcinc_attack_type": "URET"}
         
-    attack_type = attack_cfg.get("physionetcinc_attack_type", "URET")
+    attack_type = attack_type_override or attack_cfg.get("physionetcinc_attack_type", "URET")
 
     if adversary:
         if attack_type == "FGSM":
@@ -104,6 +105,68 @@ def get_sepsis_score(data, model, adversary=False, adversarial_data=None):
                 data_adv = torch.clamp(data_adv, min=0.0)
 
             data_normalized = data_adv.cpu().numpy().reshape(backcast_length, nv)
+            adversarial_data[backcast_length - 1] = (data_normalized * norm)[backcast_length - 1]
+            data = data_normalized
+        elif attack_type == "PGD":
+            # --- PGD Attack ---
+            data_normalized = data / norm
+            eps = 0.02
+            alpha = 0.004
+            num_steps = 10
+
+            data_orig = torch.tensor(data_normalized, dtype=torch.float32, device=device)
+            data_adv = data_orig.clone()
+
+            model.train()
+            for step in range(num_steps):
+                data_adv = data_adv.clone().detach().requires_grad_(True)
+                logits, _ = model(data_adv)
+
+                target = torch.tensor([0], dtype=torch.long).to(device)
+                loss = F.cross_entropy(logits, target)
+
+                model.zero_grad()
+                loss.backward()
+
+                with torch.no_grad():
+                    data_adv = data_adv - alpha * data_adv.grad.sign()
+                    data_adv = torch.max(torch.min(data_adv, data_orig + eps), data_orig - eps)
+                    data_adv = torch.clamp(data_adv, min=0.0)
+            model.eval()
+
+            data_normalized = data_adv.cpu().numpy().reshape(backcast_length, nv)
+            adversarial_data[backcast_length - 1] = (data_normalized * norm)[backcast_length - 1]
+            data = data_normalized
+        elif attack_type == "CW":
+            # --- C&W Attack ---
+            data_normalized = data / norm
+            c = 1.0
+            lr = 0.01
+            num_steps = 50
+
+            data_orig = torch.tensor(data_normalized, dtype=torch.float32, device=device)
+            delta = torch.zeros_like(data_orig, requires_grad=True)
+            optimizer = optim.Adam([delta], lr=lr)
+
+            model.train()
+            for step in range(num_steps):
+                data_adv = torch.clamp(data_orig + delta, min=0.0)
+                logits, _ = model(data_adv)
+
+                target = torch.tensor([0], dtype=torch.long).to(device)
+                loss_attack = F.cross_entropy(logits, target)
+                loss_perturb = torch.mean(delta ** 2)
+
+                # attack succeeds when cross-entropy toward class 0 is small, so it's added (not subtracted)
+                loss = loss_perturb + c * loss_attack
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+            model.eval()
+
+            data_adv = torch.clamp(data_orig + delta, min=0.0)
+            data_normalized = data_adv.detach().cpu().numpy().reshape(backcast_length, nv)
             adversarial_data[backcast_length - 1] = (data_normalized * norm)[backcast_length - 1]
             data = data_normalized
         else:

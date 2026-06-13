@@ -129,9 +129,10 @@ def map_cluster_ids_to_patient_ids(cluster_ids, valid_patient_ids, data_dir):
     return mapped_ids
 
 
-def generate_defense_dataset(cluster_dir, out_dir):
+def generate_defense_dataset(cluster_dir, out_dir, data_dir=None):
     os.makedirs(out_dir, exist_ok=True)
-    data_dir = Path(__file__).resolve().parent / "output"
+    if data_dir is None:
+        data_dir = Path(__file__).resolve().parent / "output"
 
     file_path_benign = Path(data_dir / 'benign_data.pkl')
     file_path_adversarial = Path(data_dir / 'adversarial_data.pkl')
@@ -222,6 +223,7 @@ if __name__ == '__main__':
 	)
 	parser.add_argument("cluster_dir", nargs="?", default="output/cluster_output", help="Directory containing cluster output")
 	parser.add_argument("out_dir", nargs="?", default="output/defense_dataset", help="Output directory")
+	parser.add_argument("--data_dir", default="output", help="Directory containing benign/adversarial model outputs")
 
 	args = parser.parse_args()
 
@@ -229,5 +231,6 @@ if __name__ == '__main__':
 
 	cluster_directory = SCRIPT_DIR / args.cluster_dir
 	output_directory = SCRIPT_DIR / args.out_dir
+	data_directory = SCRIPT_DIR / args.data_dir
 
-	generate_defense_dataset(cluster_directory, output_directory)
+	generate_defense_dataset(cluster_directory, output_directory, data_directory)
