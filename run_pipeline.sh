@@ -513,11 +513,22 @@ fi
 # generate_defense_dataset.py (requires those generate + the normal eval to have run).
 # Honor each dataset's defense_type so MAD-GAN (expensive) is included only if selected.
 if [ "$RUN_PER_CLUSTER_REPORT" = "true" ]; then
+    # Only re-run per-cluster eval for a dataset whose per-cluster test sets exist
+    # (created by that dataset's generate_defense_datasets step). Datasets without them
+    # are skipped, so single-dataset / partial configs work. OhioT1DM is post-hoc.
     for VARIANT in less more; do
-        echo "Per-cluster eval (${VARIANT}) for MIMIC (namespace ${MIMIC_NAMESPACE})..."
-        run_defense_eval_scripts "venv_mimic" "MIMIC" "mimic" "$RUN_MIMIC_DEF_TYPE" "$MIMIC_NAMESPACE" "$VARIANT"
-        echo "Per-cluster eval (${VARIANT}) for PhysioNetCinC (namespace ${PHYS_NAMESPACE})..."
-        run_defense_eval_scripts "venv_physionetcinc" "PhysioNetCinC" "physionetcinc" "$RUN_PHYS_DEF_TYPE" "$PHYS_NAMESPACE" "$VARIANT"
+        if [ -d "$SCRIPT_DIR/MIMIC/output/${MIMIC_NAMESPACE}/defense_dataset_${VARIANT}" ]; then
+            echo "Per-cluster eval (${VARIANT}) for MIMIC (namespace ${MIMIC_NAMESPACE})..."
+            run_defense_eval_scripts "venv_mimic" "MIMIC" "mimic" "$RUN_MIMIC_DEF_TYPE" "$MIMIC_NAMESPACE" "$VARIANT"
+        else
+            echo "Skipping MIMIC per-cluster eval (${VARIANT}): output/${MIMIC_NAMESPACE}/defense_dataset_${VARIANT} not found."
+        fi
+        if [ -d "$SCRIPT_DIR/PhysioNetCinC/output/${PHYS_NAMESPACE}/defense_dataset_${VARIANT}" ]; then
+            echo "Per-cluster eval (${VARIANT}) for PhysioNetCinC (namespace ${PHYS_NAMESPACE})..."
+            run_defense_eval_scripts "venv_physionetcinc" "PhysioNetCinC" "physionetcinc" "$RUN_PHYS_DEF_TYPE" "$PHYS_NAMESPACE" "$VARIANT"
+        else
+            echo "Skipping PhysioNetCinC per-cluster eval (${VARIANT}): output/${PHYS_NAMESPACE}/defense_dataset_${VARIANT} not found."
+        fi
     done
 
     echo "Generating per-cluster breakdown CSVs + grouped-bar plots..."
