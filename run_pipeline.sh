@@ -73,6 +73,9 @@ RUN_PHYS_PLOT_DEF=$(yq e '.physionetcinc_plot_defense_results' "$CONFIG_FILE")
 # Cross-attack comparison figures flag (cross-dataset)
 RUN_CROSS_ATTACK_PLOTS=$(yq e '.cross_attack_plots' "$CONFIG_FILE")
 
+# Per-cluster (less/more-vulnerable test) reporting flag (cross-dataset)
+RUN_PER_CLUSTER_REPORT=$(yq e '.per_cluster_report' "$CONFIG_FILE")
+
 # Adversarial Attack Type flags
 RUN_OHIOT1DM_ATTACK_TYPE=$(yq e '.ohiot1dm_attack_type' "$CONFIG_FILE")
 RUN_OHIOT1DM_EVAL_ATTACK_TYPE=$(yq e '.ohiot1dm_eval_attack_type' "$CONFIG_FILE")
@@ -125,6 +128,7 @@ for arg in "$@"; do
         --physionetcinc_attack_type=*) RUN_PHYS_ATTACK_TYPE="${arg#*=}" ;;
         --physionetcinc_eval_attack_type=*) RUN_PHYS_EVAL_ATTACK_TYPE="${arg#*=}" ;;
         --cross_attack_plots=*) RUN_CROSS_ATTACK_PLOTS="${arg#*=}" ;;
+        --per_cluster_report=*) RUN_PER_CLUSTER_REPORT="${arg#*=}" ;;
         --risk_profile=*)             RUN_GLOBAL_RISK="${arg#*=}" ;;
         --cluster=*)                  RUN_GLOBAL_CLUS="${arg#*=}" ;;
         -h|--help)
@@ -150,6 +154,7 @@ for arg in "$@"; do
             echo "       [--mimic_plot_defense_results=true|false]"
             echo "       [--physionetcinc_plot_defense_results=true|false]"
             echo "       [--cross_attack_plots=true|false]"
+            echo "       [--per_cluster_report=true|false]"
             exit 0
             ;;
         *) echo "Unknown option: $arg"; exit 1 ;;
@@ -190,6 +195,7 @@ RUN_PHYS_DEF_TYPE=$(echo "$RUN_PHYS_DEF_TYPE" | tr '[:upper:]' '[:lower:]')
 RUN_PHYS_PLOT_DEF=$(echo "$RUN_PHYS_PLOT_DEF" | tr '[:upper:]' '[:lower:]')
 
 RUN_CROSS_ATTACK_PLOTS=$(echo "$RUN_CROSS_ATTACK_PLOTS" | tr '[:upper:]' '[:lower:]')
+RUN_PER_CLUSTER_REPORT=$(echo "$RUN_PER_CLUSTER_REPORT" | tr '[:upper:]' '[:lower:]')
 
 RUN_GLOBAL_RISK=$(echo "$RUN_GLOBAL_RISK" | tr '[:upper:]' '[:lower:]')
 RUN_GLOBAL_CLUS=$(echo "$RUN_GLOBAL_CLUS" | tr '[:upper:]' '[:lower:]')
@@ -270,9 +276,14 @@ run_defense_eval_scripts() {
     local dataset_key=$3
     local defense_type=$4
     local namespace=$5
+    local variant=$6   # optional: "" (full), "less", or "more" for per-cluster test sets
 
-    local data_dir_arg="output/${namespace}/defense_dataset"
-    local defense_out_base="output/${namespace}/defense_output"
+    local suffix=""
+    if [ -n "$variant" ]; then
+        suffix="_${variant}"
+    fi
+    local data_dir_arg="output/${namespace}/defense_dataset${suffix}"
+    local defense_out_base="output/${namespace}/defense_output${suffix}"
 
     local defense_types=()
     if [ "$defense_type" = "all" ]; then
@@ -491,6 +502,26 @@ fi
 if [ "$RUN_CROSS_ATTACK_PLOTS" = "true" ]; then
     echo "Generating cross-attack comparison figures (attack-type comparison, cross-attack heatmaps, box plots)..."
     run_in_env_path "OhioT1DM/venv_ohiot1dm" "." "python plot_cross_attack_results.py"
+fi
+
+# ---------------------------
+# Per-cluster (less/more-vulnerable test) reporting (cross-dataset)
+# ---------------------------
+# OhioT1DM is post-hoc (per-patient combined CSVs already exist) -- no extra eval.
+# MIMIC/PhysioNet need the per-cluster test sets evaluated: re-run the existing
+# detectors against the defense_dataset_{less,more} dirs emitted by
+# generate_defense_dataset.py (requires those generate + the normal eval to have run).
+# Honor each dataset's defense_type so MAD-GAN (expensive) is included only if selected.
+if [ "$RUN_PER_CLUSTER_REPORT" = "true" ]; then
+    for VARIANT in less more; do
+        echo "Per-cluster eval (${VARIANT}) for MIMIC (namespace ${MIMIC_NAMESPACE})..."
+        run_defense_eval_scripts "venv_mimic" "MIMIC" "mimic" "$RUN_MIMIC_DEF_TYPE" "$MIMIC_NAMESPACE" "$VARIANT"
+        echo "Per-cluster eval (${VARIANT}) for PhysioNetCinC (namespace ${PHYS_NAMESPACE})..."
+        run_defense_eval_scripts "venv_physionetcinc" "PhysioNetCinC" "physionetcinc" "$RUN_PHYS_DEF_TYPE" "$PHYS_NAMESPACE" "$VARIANT"
+    done
+
+    echo "Generating per-cluster breakdown CSVs + grouped-bar plots..."
+    run_in_env_path "OhioT1DM/venv_ohiot1dm" "." "python report_per_cluster.py"
 fi
 
 echo "Pipeline completed successfully."

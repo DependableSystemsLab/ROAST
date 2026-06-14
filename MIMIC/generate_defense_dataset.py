@@ -1,10 +1,47 @@
 import joblib
 import numpy as np
 import os
+import shutil
 import argparse
 from pathlib import Path
 from sklearn.model_selection import KFold, train_test_split
 import random
+
+
+def write_per_cluster_test_dirs(out_dir, data, cluster_to_patients):
+    """Emit sibling <out_dir>_<tag> dirs for per-cluster TEST evaluation.
+
+    Each sibling dir contains a copy of every shared training file from out_dir
+    plus cluster-restricted ``*_test_all_{cv}.npy`` files (a 5-fold split over only
+    that cluster's patients). Because the train files are identical to the main run,
+    pointing the unchanged evaluate_*.py at ``--data_dir=<out_dir>_<tag>`` yields the
+    same trained detectors evaluated on a single cluster's test patients.
+    """
+    out_dir = Path(out_dir)
+    nf = data.shape[2]
+    train_files = sorted(out_dir.glob("*_train_*.npy"))
+
+    for tag, patient_ids in cluster_to_patients.items():
+        cdir = Path(str(out_dir) + f"_{tag}")
+        os.makedirs(cdir, exist_ok=True)
+
+        # Reuse the exact training files so only the test set differs per cluster.
+        for f in train_files:
+            shutil.copy(f, cdir / f.name)
+
+        patient_ids = np.asarray(list(patient_ids))
+        n_splits = min(5, len(patient_ids))
+        cv = 0
+        if n_splits >= 2:
+            for _, test_idx in KFold(n_splits=n_splits).split(patient_ids):
+                np.save(cdir / f"mimic_test_all_{cv}.npy",
+                        data[patient_ids[test_idx]].reshape(-1, nf))
+                cv += 1
+        # Pad any remaining folds (cluster smaller than 5 patients) with the full
+        # cluster so the evaluate loop's `for cv in range(5)` always finds a file.
+        while cv < 5:
+            np.save(cdir / f"mimic_test_all_{cv}.npy", data[patient_ids].reshape(-1, nf))
+            cv += 1
 
 def create_mixed_data(benign_data, adversarial_data, features):
     """Create mixed benign/adversarial data with random selection (vectorized)."""
@@ -69,6 +106,12 @@ def generate_defense_dataset(cluster_dir, out_dir, data_dir=None):
     for train_indices, test_indices in kf.split(AllPatientIDs):
         np.save(out_dir / f'mimic_test_all_{cv}.npy', data[test_indices].reshape(-1, data.shape[2]))
         cv+=1
+
+    # Per-cluster test sets for less/more-vulnerable test-side breakdown.
+    write_per_cluster_test_dirs(out_dir, data, {
+        "less": LessVulnerablePatientIDs,
+        "more": MoreVulnerablePatientIDs,
+    })
 
 
 if __name__ == '__main__':

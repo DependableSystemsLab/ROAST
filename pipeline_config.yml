@@ -41,3 +41,6 @@ physionetcinc_plot_defense_results: false
 
 # Cross-attack comparison figures (cross-dataset: attack-type comparison, cross-attack heatmaps, box plots)
 cross_attack_plots: false
+
+# Per-cluster reporting (cross-dataset: less- vs more-vulnerable test-patient breakdown; CSV + grouped bars)
+per_cluster_report: false
