@@ -76,7 +76,11 @@ def parse_results_csv(csv_path):
         next(reader, None)
 
         for row in reader:
-            if len(row) < 17 or row[1] == "":
+            # A full 5-cohort row needs 21 columns (Patient + 5 cohorts x 4 metrics);
+            # this reads through row[20]. Stop on short/incomplete rows (e.g. trailing
+            # blanks, or stale 4-cohort/17-column files from an older pipeline version)
+            # instead of crashing with an IndexError.
+            if len(row) < 21 or row[1] == "":
                 break
 
             metrics["less_vulnerable"]["accuracy"].append(float(row[1]))
