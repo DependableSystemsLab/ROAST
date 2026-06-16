@@ -2,8 +2,8 @@
 ohiot1dm_preprocess: false
 ohiot1dm_model: false
 ohiot1dm_dataset: "all"  # Options: 2018, 2020, all
-ohiot1dm_attack_type: "URET"  # Options: URET, FGSM, PGD, CW
-ohiot1dm_eval_attack_type: "same"  # Options: same, URET, FGSM, PGD, CW
+ohiot1dm_attack_type: "URET"  # Options: URET, FGSM, PGD, CW, all (all = every attack as risk)
+ohiot1dm_eval_attack_type: "same"  # Options: same, URET, FGSM, PGD, CW, all (all = every off-diagonal eval)
 ohiot1dm_risk_profile: false
 ohiot1dm_cluster: false
 ohiot1dm_cluster_method: "hierarchical"  # Options: hierarchical, kmeans
@@ -16,8 +16,8 @@ ohiot1dm_plot_defense_results: false
 mimic_preprocess: false
 mimic_model_train: false
 mimic_model_test: false
-mimic_attack_type: "URET"  # Options: URET, FGSM, PGD, CW
-mimic_eval_attack_type: "same"  # Options: same, URET, FGSM, PGD, CW
+mimic_attack_type: "URET"  # Options: URET, FGSM, PGD, CW, all (all = every attack as risk)
+mimic_eval_attack_type: "same"  # Options: same, URET, FGSM, PGD, CW, all (all = every off-diagonal eval)
 mimic_risk_profile: false
 mimic_cluster: false
 mimic_cluster_method: "hierarchical"  # Options: hierarchical, kmeans
@@ -29,8 +29,8 @@ mimic_plot_defense_results: false
 # PhysioNetCinC Pipeline
 physionetcinc_model: false
 physionetcinc_dataset: "all"  # Options: A, B, all
-physionetcinc_attack_type: "URET"  # Options: URET, FGSM, PGD, CW
-physionetcinc_eval_attack_type: "same"  # Options: same, URET, FGSM, PGD, CW
+physionetcinc_attack_type: "URET"  # Options: URET, FGSM, PGD, CW, all (all = every attack as risk)
+physionetcinc_eval_attack_type: "same"  # Options: same, URET, FGSM, PGD, CW, all (all = every off-diagonal eval)
 physionetcinc_risk_profile: false
 physionetcinc_cluster: false
 physionetcinc_cluster_method: "hierarchical"  # Options: hierarchical, kmeans
