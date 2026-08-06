@@ -1,7 +1,7 @@
 {
 "settings_file": "",
 "year": "all",
-"patient": "0",
+"patient": "4",
 "data": "sepsis_test_patient_wise",
 "identifier": "sepsis_test_patient_wise",
 "sub_id": "sepsis",

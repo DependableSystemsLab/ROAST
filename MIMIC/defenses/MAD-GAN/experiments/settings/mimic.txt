@@ -1,7 +1,7 @@
 {
 "settings_file": "",
-"year": "least",
-"patient": "0",
+"year": "samples",
+"patient": "4",
 "data": "mimic_patient_wise",
 "identifier": "mimic_patient_wise",
 "sub_id": "mimic",

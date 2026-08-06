@@ -49,9 +49,12 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 echo ">>> Creating isolated PhysioNetCinC MAD-GAN environment"
-"$PYTHON_BIN" -m venv "$VENV_DIR"
-
-VENV_PYTHON="$VENV_DIR/bin/python"
+VENV_PYTHON="$VENV_DIR/bin/python3.9"
+if [ ! -x "$VENV_PYTHON" ] || ! "$VENV_PYTHON" -m pip --version >/dev/null 2>&1; then
+  "$PYTHON_BIN" -m venv "$VENV_DIR"
+else
+  echo ">>> Reusing existing PhysioNetCinC MAD-GAN environment"
+fi
 
 echo ">>> Bootstrapping pip/setuptools/wheel for Python 3.9"
 "$VENV_PYTHON" -m ensurepip --upgrade || true

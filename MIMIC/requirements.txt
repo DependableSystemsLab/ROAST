@@ -2,7 +2,8 @@ import_ipynb==0.1.3
 ipywidgets==7.5.1
 Jinja2==2.11.2
 matplotlib==3.2.2
-numpy==1.18.5
+# PyOD 2.x requires NumPy >=1.19; 1.21.6 is the last release for Python 3.7.
+numpy==1.21.6
 pandas==1.0.5
 scikit_learn==1.0.2
 PyYAML==6.0
@@ -15,6 +16,6 @@ argparse
 jupyter
 argparse
 markupsafe==2.0.1
-dtaidistance
+dtaidistance==2.3.12
 joblib
-pyod>=2.0  # >=2.0 ships the PyTorch DeepSVDD backend (older pyod needs TensorFlow)
+pyod==2.0.5  # 2.x ships the PyTorch DeepSVDD backend; newer releases require Python >=3.8.

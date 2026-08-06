@@ -1,7 +1,7 @@
 {
 "settings_file": "",
-"year": "2020",
-"patient": "0",
+"year": "2018",
+"patient": "5",
 "data": "ohiot1dm_test_patient_wise",
 "identifier": "ohiot1dm_test_patient_wise",
 "sub_id": "ohiot1dm",

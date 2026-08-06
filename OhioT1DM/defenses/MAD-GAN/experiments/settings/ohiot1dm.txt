@@ -1,7 +1,7 @@
 {
 "settings_file": "",
-"year": "least",
-"patient": "0",
+"year": "samples",
+"patient": "9",
 "data": "ohiot1dm_patient_wise",
 "identifier": "ohiot1dm_patient_wise",
 "sub_id": "ohiot1dm",
