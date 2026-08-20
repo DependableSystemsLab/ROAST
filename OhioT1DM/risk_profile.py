@@ -99,9 +99,11 @@ def risk_profile(output_directory):
             ##################################################################################
             i+=1
 
-    timeseries = [ts.copy() for ts in timeseries_original]
-    for i in range(len(timeseries)):
-        timeseries[i]*=severity_coefficients[i]
+    # CGM is the only manipulated channel, so the normalized absolute influence
+    # weight is exactly one.  Keep the instantaneous impact non-negative and avoid
+    # the former categorical severity multiplier, which did not match the paper's
+    # declared regression-weight rule.
+    timeseries = [np.asarray(ts, dtype=float) for ts in timeseries_original]
 
     joblib.dump(timeseries, output_directory/"risk_profiles.pkl")
 

@@ -1,143 +1,54 @@
-import math
+#!/usr/bin/env python3
+"""Paper-faithful two-cluster DTW clustering for PhysioNet CinC profiles."""
+
 import argparse
+import json
+import sys
 from pathlib import Path
-import pandas as pd
-import numpy as np
+
 import joblib
-from scipy import stats
-from dtaidistance import dtw
-import itertools
-from tqdm import tqdm
-import os
-from scipy.cluster.hierarchy import linkage, fcluster, dendrogram
 import matplotlib.pyplot as plt
-from pathlib import Path
-from sklearn.metrics import silhouette_score
+import numpy as np
+from scipy.cluster.hierarchy import dendrogram
 
-def jaccard_index(a, b):
-    a_set, b_set = set(a), set(b)
-    return len(a_set & b_set) / len(a_set | b_set)
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from roast_core import cluster_risk_profiles
 
-def get_less_vulnerable_cluster(clusters, reference_indices):
-    """
-    Automatically find cluster most overlapping with original less-vulnerable set
-    """
-    unique_clusters = np.unique(clusters)
-    best_cluster = None
-    best_score = 0
-
-    for c in unique_clusters:
-        indices = np.where(clusters == c)[0]
-        score = jaccard_index(reference_indices, indices)
-        if score > best_score:
-            best_score = score
-            best_cluster = indices
-
-    return best_cluster, best_score
 
 def hierarchical_cluster(risk_profiles_directory, output_directory):
-    os.makedirs(output_directory, exist_ok=True)
-    records = joblib.load(risk_profiles_directory/"risk_profiles.pkl")
-
-    # Each record is expected as: [patient_label (str), risk_profile (list)]
-    labels = [record[0] for record in records]
-    timeseries = [record[1] for record in records]
-
-    numbers = []
-    for i in range(len(timeseries)):
-        numbers.append(i)
-
-    i=0
-    dist = math.inf
-
-    for x in itertools.permutations(numbers):
-        ts = []
-        lb = []
-        for j in range(len(x)):
-            ts.append(np.array(timeseries[int(x[j])]))
-            lb.append(labels[int(x[j])])
-
-        # --- DTW distance matrix ---
-        ds = dtw.distance_matrix_fast(ts)
-
-        # --- Hierarchical clustering ---
-        Z = linkage(ds, method='complete')
-
-        # --- Threshold settings ---
-        threshold_orig = 50
-        scales = [1.0] #[0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15]
-        thresholds = [threshold_orig * s for s in scales]
-
-        # --- Plot dendrogram ---
-        plt.figure(figsize=(10, 6))
-        dendrogram(Z, labels=lb, truncate_mode='lastp', p=5)
+    raw = joblib.load(Path(risk_profiles_directory) / "risk_profiles.pkl")
+    records = [(str(record[0]), np.asarray(record[1]).reshape(-1)) for record in raw]
+    result = cluster_risk_profiles(records)
+    index = {label: position for position, label in enumerate(result.labels)}
+    less = np.asarray([index[label] for label in result.less_vulnerable], dtype=int)
+    more = np.asarray([index[label] for label in result.more_vulnerable], dtype=int)
+    output_directory = Path(output_directory)
+    output_directory.mkdir(parents=True, exist_ok=True)
+    joblib.dump(np.arange(len(records)), output_directory / "AllPatientIDs.pkl")
+    joblib.dump(less, output_directory / "LessVulnerablePatientIDs.pkl")
+    joblib.dump(more, output_directory / "MoreVulnerablePatientIDs.pkl")
+    np.save(output_directory / "distance_matrix.npy", result.distance_matrix)
+    plt.figure(figsize=(10, 6))
+    dendrogram(result.linkage_matrix, labels=result.labels)
+    plt.xlabel("Patient ID")
+    plt.ylabel("DTW Distance")
+    plt.tight_layout()
+    plt.savefig(output_directory / "Dendrogram.pdf")
+    plt.close()
+    (output_directory / "cluster_summary.json").write_text(json.dumps({
+        "profiling_contract": "roast-v2-standardized-absolute-condensed-dtw-maxclust2-lower-median",
+        "less_vulnerable": list(result.less_vulnerable),
+        "more_vulnerable": list(result.more_vulnerable),
+        "cluster_medians": {str(k): v for k, v in result.cluster_medians.items()},
+    }, indent=2) + "\n")
 
 
-        # Overlay all thresholds
-        for t in thresholds:
-            plt.axhline(y=t, linestyle='--')
-
-        plt.title("DTW + Complete Linkage Dendrogram with Threshold Sweep")
-        plt.xlabel("Patient Index")
-        plt.ylabel("DTW Distance")
-        plt.savefig(output_directory/"Dendrogram.pdf")
-        plt.close()
-
-        # --- Original clustering ---
-        clusters_orig = fcluster(Z, t=threshold_orig, criterion='distance')
-        original_cluster_id = 1
-        less_vuln_orig = np.where(clusters_orig == original_cluster_id)[0]
-        break
-
-        # results = {}
-
-        # for scale in scales:
-        #     t_new = threshold_orig * scale
-        #     clusters_new = fcluster(Z, t=t_new, criterion='distance')
-
-        #     matched_cluster, j_score = get_less_vulnerable_cluster(clusters_new, less_vuln_orig)
-
-        #     # silhouette = silhouette_score(ds, clusters_new, metric='precomputed')
-
-        #     results[scale] = {
-        #         "threshold": t_new,
-        #         "jaccard": j_score,
-        #         # "silhouette": silhouette,
-        #         "cluster_size": len(matched_cluster)
-        #     }
-
-        # print(results)
-
-        # i += 1
-    
-    AllPatientIDs = np.arange(0, len(timeseries))
-    LessVulnerablePatientIDs = np.array(less_vuln_orig)
-    MoreVulnerablePatientIDs = np.array(list(set(AllPatientIDs) - set(LessVulnerablePatientIDs)))
-
-    joblib.dump(AllPatientIDs, output_directory/"AllPatientIDs.pkl")
-    joblib.dump(LessVulnerablePatientIDs, output_directory/"LessVulnerablePatientIDs.pkl")
-    joblib.dump(MoreVulnerablePatientIDs, output_directory/"MoreVulnerablePatientIDs.pkl")
-
-    print("All Patient IDs: ", end="")
-    print(np.array(labels)[list(AllPatientIDs)])
-    print("Less Vulnerable Patient IDs: ", end="")
-    print(np.array(labels)[list(LessVulnerablePatientIDs)])
-    print("More Vulnerable Patient IDs: ", end="")
-    print(np.array(labels)[list(MoreVulnerablePatientIDs)])
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description="Run PhysioNetCinC script: python hierarchical_cluster.py <risk_profiles_directory> <output_directory>",
-        epilog="Example: python hierarchical_cluster.py output output/cluster_output"
-    )
-    parser.add_argument("risk_profiles_dir", nargs="?", default="output", help="Directory containing risk profiles")
-    parser.add_argument("out_dir", nargs="?", default="output/cluster_output", help="Output directory")
-
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("risk_profiles_dir", nargs="?", default="output")
+    parser.add_argument("out_dir", nargs="?", default="output/cluster_output")
     args = parser.parse_args()
-
-    SCRIPT_DIR = Path(__file__).resolve().parent
-
-    output_directory = SCRIPT_DIR / args.out_dir
-    risk_profiles_directory = SCRIPT_DIR / args.risk_profiles_dir
-
-    hierarchical_cluster(risk_profiles_directory, output_directory)
+    base = Path(__file__).resolve().parent
+    hierarchical_cluster(base / args.risk_profiles_dir, base / args.out_dir)

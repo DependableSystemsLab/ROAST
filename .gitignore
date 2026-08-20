@@ -1,0 +1,47 @@
+__pycache__/
+*.py[cod]
+
+# Local Python environments and package metadata
+.venv*/
+venv*/
+*.egg-info/
+
+# Local datasets
+data/
+dataset/
+datasets/
+input/
+mimiciv/
+PRETRAINS/
+__MACOSX/
+
+# Generated experiment outputs
+output/
+outputs/
+results/
+cross_attack_figures/
+per_cluster_figures/
+**/experiments/parameters/
+**/experiments/plots/
+*_preview*.png
+Average_Recall_*.pdf
+per_cluster_recall.pdf
+
+# Archives and trained-model artifacts
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.pkl
+*.pickle
+*.joblib
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.pb
+*.h5
+*.hdf5
+*.sav

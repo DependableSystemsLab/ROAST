@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 from sklearn import preprocessing
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import numpy as np
 import joblib
@@ -86,11 +87,12 @@ def risk_profile(output_directory):
     X = benign_data
     y = adversarial_output
     # define the model
-    model = LogisticRegression()
+    model = LogisticRegression(max_iter=2000, random_state=42)
     # fit the model
-    model.fit(X, y)
+    model.fit(StandardScaler().fit_transform(X), y.reshape(-1))
     # get importance
-    importance = model.coef_[0]
+    importance = np.abs(model.coef_[0])
+    importance = importance / importance.sum() if importance.sum() else np.full_like(importance, 1 / len(importance))
 
     # timeseries = importance * benign_data
     timeseries = importance * pow(adversarial_data - benign_data, 2)
